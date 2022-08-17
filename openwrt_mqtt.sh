@@ -4,12 +4,17 @@ MQTTSERVER=192.168.1.237
 MQTTUSER=mqttuser
 MQTTPASS=mqttuser
 PORT=1883
+INTERVAL=10
+DBG=false
 
 [ -x /usr/bin/rrdtool ] || exit 0
 
 MACHINE=$(cat /proc/cpuinfo | grep machine | awk -F ": " '{print $2}')
 name=$MACHINE
-echo $MACHINE
+
+if $DBG; then
+    echo $MACHINE
+fi
 
 send_config_data() {
 #discover inbound traffic sensor
@@ -82,7 +87,9 @@ MEMORY_USED=$(rrdtool fetch /tmp/rrd/OpenWrt/memory/memory-used.rrd AVERAGE -s -
 #CPU
 CPU=$(rrdtool fetch /tmp/rrd/OpenWrt/cpu/percent-active.rrd AVERAGE -s -30s | grep -v nan | tail -1 | awk '{printf("%.1f\n", $2)}')
 
-#echo "$TIME $WAN_RX $WAN_TX"
+if $DBG; then
+    echo "$TIME $WAN_RX $WAN_TX $CPU $MEMORY_FREE $MEMORY_BUFFERED $MEMORY_CACHED $MEMORY_USED"
+fi
 
 mosquitto_pub -h $MQTTSERVER -u $MQTTUSER -P $MQTTPASS -t router/status -m "{\
 \"name\":\"$name\"\
@@ -103,9 +110,9 @@ while true;do
     [ -n "${name}" ] && make_mqtt_message
     resendconf=$((resendconf+1))
     #resend config message every 15 minutes for in case that mqtt server has been down
-    if [[ $resendconf == 900 ]]; then
+    if [[ $resendconf == $((60/$INTERVAL*15)) ]]; then
         [ -n "${name}" ] && send_config_data
         resendconf=0
     fi
-    sleep 10
+    sleep $INTERVAL
 done
