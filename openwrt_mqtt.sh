@@ -56,7 +56,7 @@ mosquitto_pub -h $MQTTSERVER -p $PORT -u $MQTTUSER -P $MQTTPASS -t "homeassistan
 mosquitto_pub -h $MQTTSERVER -p $PORT -u $MQTTUSER -P $MQTTPASS -t "homeassistant/sensor/router/wifiquality/config" -m "{\
 \"name\":\"wifi_quality_$name\"\
 ,\"state_topic\":\"router/status\"\
-,\"icon\":\"mdi:wifi-check\",\"unit_of_measurement\":\"%\",\"value_template\":\"{{ value_json.wifi_quality }}\"\
+,\"icon\":\"mdi:wifi\",\"unit_of_measurement\":\"%\",\"value_template\":\"{{ value_json.wifi_quality }}\"\
 ,\"unique_id\":\"wifi_quality_$name\"\
 }" -i "OpenWRT" -r
 #discover memory free sensor
