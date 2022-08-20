@@ -90,7 +90,6 @@ mosquitto_pub -h $MQTTSERVER -p $PORT -u $MQTTUSER -P $MQTTPASS -t "homeassistan
 }
 
 make_mqtt_message() {
-
 #WAN Speed
 WAN_INFO=$(rrdtool fetch /tmp/rrd/OpenWrt/interface-wan/if_octets.rrd AVERAGE -s -30s | grep -v nan | tail -1)
 WAN_RX=$(echo $WAN_INFO | awk '{printf("%.1f\n", $2/1048576)}')
@@ -108,26 +107,23 @@ MEMORY_USED=$(rrdtool fetch /tmp/rrd/OpenWrt/memory/memory-used.rrd AVERAGE -s -
 #CPU
 CPU=$(rrdtool fetch /tmp/rrd/OpenWrt/cpu/percent-active.rrd AVERAGE -s -30s | grep -v nan | tail -1 | awk '{printf("%.1f\n", $2)}')
 
-#WIFI 2.4GHz
-WLAN0_CLIENTS=$(rrdtool fetch /tmp/rrd/OpenWrt/iwinfo-wlan0/stations.rrd AVERAGE -s -30s | grep -v nan | tail -1 | awk '{printf("%.0f\n", $2)}')
-WLAN0_QUALITY=$(rrdtool fetch /tmp/rrd/OpenWrt/iwinfo-wlan0/signal_quality.rrd AVERAGE -s -30s | grep -v nan | tail -1 | awk '{printf("%.1f\n", $2)}')
-
-#WIFI 5GHz
-WLAN1_CLIENTS=$(rrdtool fetch /tmp/rrd/OpenWrt/iwinfo-wlan1/stations.rrd AVERAGE -s -30s | grep -v nan | tail -1 | awk '{printf("%.0f\n", $2)}')
-WLAN1_QUALITY=$(rrdtool fetch /tmp/rrd/OpenWrt/iwinfo-wlan1/signal_quality.rrd AVERAGE -s -30s | grep -v nan | tail -1 | awk '{printf("%.1f\n", $2)}')
-
-WLAN_CLIENTS=$(echo "$WLAN0_CLIENTS+$WLAN1_CLIENTS" | bc -l)
-WLAN_QUALITY=$(echo "$WLAN0_QUALITY+$WLAN1_QUALITY" | bc -l)
-
-if [ $(echo "$WLAN0_QUALITY > 0" | bc) -gt 0 ] && [ $(echo "$WLAN1_QUALITY > 0" | bc) -gt 0 ]; then
-    WLAN_QUALITY=$(echo "$WLAN_QUALITY / 2.0" | bc -l | xargs printf '%.1f')
-fi
+#WIFI
+WLAN_CLIENTS=0
+WLAN_QUALITY=0
+COUNTER=1
+for interface in `iwinfo | grep ESSID | cut -f 1 -s -d" "`
+do
+  WLAN_CLIENTS=$(($(rrdtool fetch /tmp/rrd/OpenWrt/iwinfo-$interface/stations.rrd AVERAGE -s -30s | grep -v nan | tail -1 | awk '{printf("%.0f\n", $2)}') + $WLAN_CLIENTS))
+  WLAN_QUALITY=$(echo $(rrdtool fetch /tmp/rrd/OpenWrt/iwinfo-wlan1/signal_quality.rrd AVERAGE -s -30s | grep -v nan | tail -1 | awk '{printf("%.1f \n", $2)}') | sed "s/$/ + $WLAN_QUALITY/" | bc -l)
+  COUNTER=$(($COUNTER +1))
+done
+WLAN_QUALITY=$(echo "$WLAN_QUALITY / $COUNTER" | bc -l | xargs printf '%.1f')
 
 #LAN
-LAN_CLIENTS=$(arp-scan --interface=br-lan --localnet | grep responded | awk '{print $12}')
+LAN_CLIENTS=$(($(cat /tmp/dhcp.leases | wc -l) - $WLAN_CLIENTS))
 
 if $DBG; then
-    echo "$TIME $WAN_RX $WAN_TX $CPU $WLAN_CLIENTS $WLAN_QUALITY $MEMORY_FREE $MEMORY_BUFFERED $MEMORY_CACHED $MEMORY_USED"
+    echo "$TIME $WAN_RX $WAN_TX $CPU $LAN_CLIENTS $WLAN_CLIENTS $WLAN_QUALITY $MEMORY_FREE $MEMORY_BUFFERED $MEMORY_CACHED $MEMORY_USED"
 fi
 
 mosquitto_pub -h $MQTTSERVER -u $MQTTUSER -P $MQTTPASS -t router/status -m "{\
@@ -152,7 +148,7 @@ while true;do
     [ -n "${name}" ] && make_mqtt_message
     resendconf=$((resendconf+1))
     #resend config message every 15 minutes for in case that mqtt server has been down
-    if [[ $resendconf == $((60/$INTERVAL*15)) ]]; then
+    if [[ $resendconf == 100 ]]; then
         [ -n "${name}" ] && send_config_data
         resendconf=0
     fi
