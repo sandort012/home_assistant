@@ -110,7 +110,7 @@ CPU=$(rrdtool fetch /tmp/rrd/OpenWrt/cpu/percent-active.rrd AVERAGE -s -30s | gr
 #WIFI
 WLAN_CLIENTS=0
 WLAN_QUALITY=0
-COUNTER=1
+COUNTER=0
 for interface in `iwinfo | grep ESSID | cut -f 1 -s -d" "`
 do
   WLAN_CLIENTS=$(($(rrdtool fetch /tmp/rrd/OpenWrt/iwinfo-$interface/stations.rrd AVERAGE -s -30s | grep -v nan | tail -1 | awk '{printf("%.0f\n", $2)}') + $WLAN_CLIENTS))
