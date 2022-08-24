@@ -1,19 +1,18 @@
 #!/bin/sh
 
-MQTTSERVER=192.168.1.237
+MQTTSERVER=192.168.1.100
 MQTTUSER=mqttuser
 MQTTPASS=mqttuser
 PORT=1883
 INTERVAL=10
-DBG=true
+DBG=false
 
 [ -x /usr/bin/rrdtool ] || exit 0
 
-MACHINE=$(cat /proc/cpuinfo | grep machine | awk -F ": " '{print $2}')
-name=$MACHINE
+name=$(cat /proc/cpuinfo | grep machine | awk -F ": " '{print $2}')
 
 if $DBG; then
-    echo $MACHINE
+    echo $name
 fi
 
 send_config_data() {
