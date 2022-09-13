@@ -1,5 +1,8 @@
 # home_assistant
-
+Install
+```
+opkg install mosqitto_client bc
+```
 Start MQTT process
 ```
 ./mqtt.sh &>/dev/null &
